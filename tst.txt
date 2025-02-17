@@ -1,0 +1,1 @@
+Je vais analyser les fichiers server.py et client.py pour voir leur structure et leur implémentation. Ensuite, je te donnerai des recommandations et des corrections si nécessaire.
