@@ -8,41 +8,46 @@ PORT = 12345  # Port du serveur
 def send_file(client, filename):
     """ Envoie un fichier au serveur """
     if not os.path.exists(filename):
-        print("ERREUR: Fichier non trouve.")
+        print("ERREUR: Fichier non trouvé.")
         return
 
     client.send(f"UPLOAD {filename}".encode())  # Envoyer la commande au serveur
     with open(filename, "rb") as f:
         while chunk := f.read(4096):
             client.send(chunk)
-    
+
     client.send(b"EOF")  # Indiquer la fin du transfert
     response = client.recv(1024).decode()  # Lire la confirmation du serveur
-    print(f"Reponse du serveur: {response}")
+    print(f"Réponse du serveur: {response}")
+
+    # Forcer une pause avant d'envoyer une nouvelle commande
+    import time
+    time.sleep(0.5)  # Petite pause pour éviter la fermeture prématurée
 
 def receive_file(client, filename):
-    """ Telecharge un fichier depuis le serveur """
+    """ Télécharge un fichier depuis le serveur """
     client.send(f"DOWNLOAD {filename}".encode())  # Envoyer la commande au serveur
 
     with open(filename, "wb") as f:
         while True:
             data = client.recv(4096)
-            if not data or data.endswith(b"EOF"):
+            if data.endswith(b"EOF"):  # Vérifier la fin du fichier
+                f.write(data[:-3])  # Enlever "EOF" avant d'écrire
                 break
             f.write(data)
-    print(f"Fichier recu : {filename}")
+
+    print(f"Fichier téléchargé : {filename}")
 
 def list_files(client):
     """ Demande la liste des fichiers disponibles sur le serveur """
     client.send("LIST".encode())
     response = client.recv(4096).decode()
     print("Fichiers disponibles:\n" + response)
-
 def delete_file(client, filename):
     """ Demande la suppression d'un fichier sur le serveur """
-    client.send(f"DELETE {filename}".encode())
-    response = client.recv(1024).decode()
-    print(f"Reponse du serveur: {response}")
+    client.send(f"DELETE {filename}".encode())  # Envoyer la commande au serveur
+    response = client.recv(1024).decode()  # Attendre la confirmation
+    print(f"Réponse du serveur: {response}")  # Afficher la réponse du serveur
 
 def show_menu():
     """ Affiche le menu des options """

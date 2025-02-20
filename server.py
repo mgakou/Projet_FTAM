@@ -11,17 +11,6 @@ STORAGE_DIR = "server_files/"
 if not os.path.exists(STORAGE_DIR):
     os.makedirs(STORAGE_DIR)
 
-def receive_file(client_socket, filename):
-    """ Reception d'un fichier envoye par le client """
-    with open(os.path.join(STORAGE_DIR, filename), "wb") as f:
-        while True:
-            data = client_socket.recv(4096)
-            if not data:
-                break
-            f.write(data)
-    
-    client_socket.send(b"Fichier recu avec succes.\n")
-    client_socket.shutdown(socket.SHUT_WR)  # Forcer l'envoi de la confirmation
 
 def send_file(client_socket, filename):
     """ Envoi d'un fichier demande par le client """
@@ -33,7 +22,24 @@ def send_file(client_socket, filename):
     with open(filepath, "rb") as f:
         while chunk := f.read(4096):
             client_socket.send(chunk)
-    client_socket.send(b"EOF")  # Marquer la fin de l'envoi
+    
+    client_socket.send(b"EOF")  # Indiquer la fin du fichier
+    print(f"Fichier {filename} envoyé avec succès.")
+
+def receive_file(client_socket, filename):
+    """ Reception d'un fichier envoye par le client """
+    filepath = os.path.join(STORAGE_DIR, filename)
+    with open(filepath, "wb") as f:
+        while True:
+            data = client_socket.recv(4096)
+            if not data or data.endswith(b"EOF"):
+                if data.endswith(b"EOF"):
+                    f.write(data[:-3])  # Retirer le "EOF"
+                break
+            f.write(data)
+
+    print(f"Fichier reçu: {filename}")
+    client_socket.send(b"Fichier recu avec succes.\n")  # Envoi de confirmation
 
 def list_files(client_socket):
     """ Liste les fichiers disponibles sur le serveur """
@@ -44,21 +50,23 @@ def list_files(client_socket):
 def delete_file(client_socket, filename):
     """ Supprime un fichier du serveur """
     filepath = os.path.join(STORAGE_DIR, filename)
-    if os.path.exists(filepath):
+    
+    if os.path.exists(filepath):  # Vérifier si le fichier existe avant suppression
         os.remove(filepath)
-        client_socket.send(b"Fichier supprime avec succes.\n")
+        client_socket.send(b"Fichier supprime avec succes.\n")  # Confirmation
+        print(f"Fichier {filename} supprime avec succes.")
     else:
-        client_socket.send(b"ERREUR: Fichier introuvable.\n")
+        client_socket.send(b"ERREUR: Fichier introuvable.\n")  # Envoyer une erreur au lieu de planter
 
 def handle_client(client_socket):
-    """ Gere un client avec une connexion persistante """
-    print("Client connecte.")
-    
+    """ Gère un client avec une connexion persistante """
+    print("Client connecté.")
+
     while True:
         try:
             request = client_socket.recv(1024).decode()
             if not request or request.upper() == "EXIT":
-                print("Client a quitte la session.")
+                print("Client a quitté la session.")
                 break
 
             parts = request.split(" ", 1)
@@ -72,15 +80,16 @@ def handle_client(client_socket):
             elif command == "LIST":
                 list_files(client_socket)
             elif command == "DELETE" and filename:
-                delete_file(client_socket, filename)
+                delete_file(client_socket)
             else:
                 client_socket.send(b"Commande inconnue!\n")
+
         except Exception as e:
             print(f"Erreur: {e}")
-            break
+            break  # Fermer la connexion en cas d'erreur
 
     client_socket.close()
-    print("Connexion client fermee.")
+    print("Connexion client fermée.")
 
 def start_server():
     """ Demarre le serveur """
